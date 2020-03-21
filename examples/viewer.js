@@ -3,6 +3,7 @@
  */
 const viewer = {};
 var viewer_button_pressed = new Date();
+var calcInteval = 0;
 
 async function startViewer(localView, remoteView, formValues, onStatsReport, onRemoteDataMessage) {
     viewer.localView = localView;
@@ -200,8 +201,13 @@ async function startViewer(localView, remoteView, formValues, onStatsReport, onR
     viewer.signalingClient.open();
 }
 
+function myStopInterval() {
+    clearInterval( calcInteval );
+}
+
 function stopViewer() {
     console.log('[VIEWER] Stopping viewer connection');
+    myStopInterval();
     if (viewer.signalingClient) {
         viewer.signalingClient.close();
         viewer.signalingClient = null;
@@ -274,7 +280,7 @@ function calculateStats() {
     var int_communication_time = 0;
             
 
-    window.setInterval(function(){
+    calcInteval = window.setInterval(function(){
 
         //see if webkit stats are available; exit if they aren't
         if (!video.webkitDecodedFrameCount){
