@@ -121,6 +121,7 @@ async function startMaster(localView, remoteView, formValues, onStatsReport, onR
 
         if (formValues.openDataChannel) {
             master.dataChannelByClientId[remoteClientId] = peerConnection.createDataChannel('kvsDataChannel');
+            console.log("master.dataChannelByClientId: ", JSON.stringify(master.dataChannelByClientId[remoteClientId]))
             peerConnection.ondatachannel = event => {
                 event.channel.onmessage = onRemoteDataMessage;
             };
@@ -139,6 +140,7 @@ async function startMaster(localView, remoteView, formValues, onStatsReport, onR
                 // When trickle ICE is enabled, send the ICE candidates as they are generated.
                 if (formValues.useTrickleICE) {
                     console.log('[MASTER] Sending ICE candidate to client: ' + remoteClientId);
+                    console.log('[MASTER] Sending ICE candidate to client: ', JSON.stringify( candidate ) )
                     master.signalingClient.sendIceCandidate(candidate, remoteClientId);
                 }
             } else {
@@ -147,6 +149,7 @@ async function startMaster(localView, remoteView, formValues, onStatsReport, onR
                 // When trickle ICE is disabled, send the answer now that all the ICE candidates have ben generated.
                 if (!formValues.useTrickleICE) {
                     console.log('[MASTER] Sending SDP answer to client: ' + remoteClientId);
+                    console.log('[MASTER] peerConnection.localDescription: ', JSON.stringify( peerConnection.localDescription ) )
                     master.signalingClient.sendSdpAnswer(peerConnection.localDescription, remoteClientId);
                 }
             }
@@ -156,9 +159,11 @@ async function startMaster(localView, remoteView, formValues, onStatsReport, onR
         peerConnection.addEventListener('track', event => {
             console.log('[MASTER] Received remote track from client: ' + remoteClientId);
             if (remoteView.srcObject) {
+                console.log("[MASTER]1: remoteView.srcObject", JSON.stringify( remoteView.srcObject ))
                 return;
             }
             remoteView.srcObject = event.streams[0];
+            console.log("[MASTER]2: remoteView.srcObject: ", JSON.stringify( remoteView.srcObject ))
         });
 
         master.localStream.getTracks().forEach(track => peerConnection.addTrack(track, master.localStream));
@@ -183,6 +188,7 @@ async function startMaster(localView, remoteView, formValues, onStatsReport, onR
 
     master.signalingClient.on('iceCandidate', async (candidate, remoteClientId) => {
         console.log('[MASTER] Received ICE candidate from client: ' + remoteClientId);
+        console.log('[MASTER] iceCandidate: ' + JSON.stringify(candidate));
 
         // Add the ICE candidate received from the client to the peer connection
         const peerConnection = master.peerConnectionByClientId[remoteClientId];
@@ -242,6 +248,7 @@ function stopMaster() {
 function sendMasterMessage(message) {
     Object.keys(master.dataChannelByClientId).forEach(clientId => {
         try {
+            console.log('[Mayaw3][MASTER] Send DataChannel[%d]: %s', clientId, message);
             master.dataChannelByClientId[clientId].send(message);
         } catch (e) {
             console.error('[MASTER] Send DataChannel: ', e.toString());
