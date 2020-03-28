@@ -4,6 +4,7 @@
 const viewer = {};
 var viewer_button_pressed = new Date();
 var calcInteval = 0;
+var statsInteval = 0;
 
 async function startViewer(localView, remoteView, formValues, onStatsReport, onRemoteDataMessage) {
     viewer.localView = localView;
@@ -146,13 +147,13 @@ async function startViewer(localView, remoteView, formValues, onStatsReport, onR
 
     viewer.signalingClient.on('sdpAnswer', async answer => {
         // Add the SDP answer to the peer connection
-        console.log('[VIEWER] Received SDP answer');
+        console.log('[VIEWER][ANSWER] Received SDP answer:', answer.type);
         await viewer.peerConnection.setRemoteDescription(answer);
     });
 
     viewer.signalingClient.on('iceCandidate', candidate => {
         // Add the ICE candidate received from the MASTER to the peer connection
-        console.log('[VIEWER] Received ICE candidate');
+        console.log('[VIEWER][FROM Master] Received ICE candidate: ', JSON.stringify(candidate));
         viewer.peerConnection.addIceCandidate(candidate);
     });
 
@@ -171,7 +172,7 @@ async function startViewer(localView, remoteView, formValues, onStatsReport, onR
 
             // When trickle ICE is enabled, send the ICE candidates as they are generated.
             if (formValues.useTrickleICE) {
-                console.log('[VIEWER] Sending ICE candidate');
+                console.log('[VIEWER][ICE Enabled] Sending ICE candidate: ', candidate.candidate);
                 viewer.signalingClient.sendIceCandidate(candidate);
             }
         } else {
@@ -179,7 +180,7 @@ async function startViewer(localView, remoteView, formValues, onStatsReport, onR
 
             // When trickle ICE is disabled, send the offer now that all the ICE candidates have ben generated.
             if (!formValues.useTrickleICE) {
-                console.log('[VIEWER] Sending SDP offer');
+                console.log('[VIEWER][ICE Disabled] Sending SDP offer: ', JSON.stringify(viewer.peerConnection.localDescription));
                 viewer.signalingClient.sendSdpOffer(viewer.peerConnection.localDescription);
             }
         }
@@ -203,6 +204,7 @@ async function startViewer(localView, remoteView, formValues, onStatsReport, onR
 
 function myStopInterval() {
     clearInterval( calcInteval );
+    clearInterval( statsInteval );
 }
 
 function stopViewer() {
@@ -344,4 +346,39 @@ function calculateStats() {
             previousDate = currentDate;
         }
     }, 1000);
+
+    statsInteval = window.setInterval(function() {
+        viewer.peerConnection.getStats(null).then(stats => {
+            let statsOutput = "";
+
+            stats.forEach(report => {
+                if(report.type == "candidate-pair" || report.type == "remote-candidate" || report.type == "local-candidate") {
+                    statsOutput += `<h2>Report: ${report.type}</h3>\n<strong>ID:</strong> ${report.id}<br>\n` +
+                                `<strong>Timestamp:</strong> ${report.timestamp}<br>\n`;
+
+                    // Now the statistics for this report; we intentially drop the ones we
+                    // sorted to the top above
+
+                    Object.keys(report).forEach(statName => {
+                        if(report.type == "candidate-pair") {
+                            if (statName == "transportId" || statName == "localCandidateId" || statName == "remoteCandidateId" || statName == "state") {
+                                statsOutput += `<strong>${statName}:</strong> ${report[statName]}<br>\n`;
+                            }
+                        }
+                        if(report.type == "remote-candidate") {
+                            if (statName == "ID" || statName == "transportId" || statName == "isRemote" || statName == "ip" || statName == "port" || statName == "protocol" || statName == "candidateType") {
+                                statsOutput += `<strong>${statName}:</strong> ${report[statName]}<br>\n`;
+                            }
+                        }
+                        if(report.type == "local-candidate") {
+                            if (statName == "ID" || statName == "transportId" || statName == "isRemote" || statName == "ip" || statName == "port" || statName == "protocol" || statName == "candidateType") {
+                                statsOutput += `<strong>${statName}:</strong> ${report[statName]}<br>\n`;
+                            }
+                        }
+                    });
+                }
+            });
+            document.querySelector(".stats-box").innerHTML = statsOutput;
+        });
+      }, 1000);
 }
